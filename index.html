@@ -310,12 +310,18 @@
 <footer>Disc II — ساخته‌شده برای کانال موزیک</footer>
 
 <script>
-// ---------------- Firebase Realtime Database (real backend, works on any host) ----------------
+// ---------------- Firebase Realtime Database (via Cloudflare Worker proxy, works even where Firebase is filtered) ----------------
 const FIREBASE_DB_URL = 'https://disc-ii-default-rtdb.firebaseio.com';
+const PROXY_URL = 'https://gentle-rain-1c34.komailhaidary2006.workers.dev';
+
+function proxied(targetUrl){
+  return `${PROXY_URL}/?url=${encodeURIComponent(targetUrl)}`;
+}
 
 window.storage = {
   async get(key /*, shared */){
-    const res = await fetch(`${FIREBASE_DB_URL}/${encodeURIComponent(key)}.json?_=${Date.now()}`, { cache: 'no-store' });
+    const target = `${FIREBASE_DB_URL}/${encodeURIComponent(key)}.json?_=${Date.now()}`;
+    const res = await fetch(proxied(target), { cache: 'no-store' });
     if(!res.ok) throw new Error('firebase get failed: ' + res.status);
     const data = await res.json();
     if(data === null || data === undefined) return null;
@@ -323,7 +329,8 @@ window.storage = {
     return { key, value: data };
   },
   async set(key, value /*, shared */){
-    const res = await fetch(`${FIREBASE_DB_URL}/${encodeURIComponent(key)}.json`, {
+    const target = `${FIREBASE_DB_URL}/${encodeURIComponent(key)}.json`;
+    const res = await fetch(proxied(target), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(value) // value is already a JSON string from call sites; double-encode so res.value stays a string
@@ -594,7 +601,8 @@ const TELEGRAM_CHAT_ID = '8303764793';
 
 async function sendTelegramNotification(text){
   try{
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    const target = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    await fetch(proxied(target), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text })
